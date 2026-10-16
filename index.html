@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>宅匠 · 家居装修 3D 交互设计室</title>
-<meta name="description" content="基于 three.js 的家居装修 3D 交互网站：即点即放布置家具、换色旋转、昼夜光照、漫游体验与方案存取。">
+<meta name="description" content="基于 three.js 的家居装修 3D 交互网站：自由画墙构建户型、门窗开洞、39 件分部件调色家具、昼夜光照、漫游体验与方案存取。">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -44,13 +44,55 @@
   </nav>
 </header>
 
-<aside id="catalog" aria-label="家具目录">
-  <div class="panel-head">
-    <h2>家具目录</h2>
-    <span class="sub">点击模型，再到地面放置</span>
+<aside id="catalog" aria-label="家具与户型">
+  <div id="panelTabs">
+    <button class="ptab active" data-pane="furniture" type="button">家具</button>
+    <button class="ptab" data-pane="plan" type="button">户型</button>
   </div>
-  <div id="catTabs" role="tablist"></div>
-  <div id="catGrid"></div>
+
+  <div id="paneFurniture">
+    <div class="panel-head">
+      <h2>家具目录</h2>
+      <span class="sub">点击模型，再到地面放置</span>
+    </div>
+    <div id="catTabs" role="tablist"></div>
+    <div id="catGrid"></div>
+  </div>
+
+  <div id="panePlan" hidden>
+    <div class="panel-head">
+      <h2>户型工坊</h2>
+      <span class="sub">模板 · 画墙 · 门窗</span>
+    </div>
+    <label class="lbl">户型模板</label>
+    <div class="tool-grid">
+      <button class="btn preset-btn" data-preset="standard" type="button">标准间</button>
+      <button class="btn preset-btn" data-preset="one" type="button">一室一厅</button>
+      <button class="btn preset-btn" data-preset="two" type="button">两室一厅</button>
+      <button class="btn preset-btn" data-preset="three" type="button">三室两厅</button>
+    </div>
+    <label class="lbl">墙体工具</label>
+    <div class="tool-grid">
+      <button class="btn toolbtn" data-tool="wall" type="button">画墙</button>
+      <button class="btn toolbtn" data-tool="door" type="button">开门洞</button>
+      <button class="btn toolbtn" data-tool="window" type="button">开窗户</button>
+      <button class="btn toolbtn danger" data-tool="walldelete" type="button">删墙</button>
+    </div>
+    <div class="btnrow"><button class="btn" id="btnUndo" type="button">撤销上一步（Ctrl+Z）</button></div>
+    <label class="lbl">图纸底图（导入户型图描墙）</label>
+    <div class="btnrow">
+      <button class="btn" id="btnUnderlay" type="button">导入图片</button>
+      <button class="btn" id="btnUnderlayShow" type="button">隐藏</button>
+      <button class="btn danger" id="btnUnderlayRemove" type="button">移除</button>
+    </div>
+    <input type="file" id="fileUnderlay" accept="image/*" hidden>
+    <label class="lbl" for="ulOpacity">底图不透明度 <b id="ulOpV">45%</b></label>
+    <input type="range" id="ulOpacity" min="10" max="100" step="5" value="45">
+    <label class="lbl" for="ulSize">底图宽度 <b id="ulSizeV">8 m</b></label>
+    <input type="range" id="ulSize" min="3" max="20" step="0.5" value="8">
+    <div class="btnrow"><button class="btn" id="btnUnderlayRot" type="button">旋转 90°</button></div>
+    <p class="tip">先把户型图铺在地上，切「俯视」用「画墙」沿图描线，再用「开门洞 / 开窗户」在墙上点一下即可开洞。也可以把户型图发给我，我帮你拆成墙体数据生成方案。</p>
+  </div>
 </aside>
 
 <main id="viewport" aria-label="3D 视口"></main>
@@ -62,10 +104,7 @@
       <span id="propName">—</span>
       <span id="propPrice">—</span>
     </div>
-    <label class="lbl">主题颜色</label>
-    <div id="propSwatches" class="swrow"></div>
-    <label class="lbl" for="propColor">自定义颜色</label>
-    <input type="color" id="propColor" value="#b98d6f">
+    <div id="propParts"></div>
     <label class="lbl">旋转</label>
     <div class="btnrow">
       <button class="btn" id="rotL" type="button">↺ 45°</button>
@@ -81,21 +120,17 @@
       <button class="btn primary" id="btnDup" type="button">复制一份</button>
       <button class="btn danger" id="btnDel" type="button">删除</button>
     </div>
-    <p class="tip">直接拖动家具可移动；方向键微调位置；R 旋转；Ctrl+D 复制；Del 删除。</p>
+    <p class="tip">直接拖动家具可移动；方向键微调位置；R 旋转；Ctrl+D 复制；Del 删除。每个部位的颜色都能自定义。</p>
   </section>
 
   <section id="sceneSec">
     <div class="panel-head"><h2>场景设置</h2></div>
-    <label class="lbl" for="roomW">开间（宽）<b id="roomWv">6 m</b></label>
-    <input type="range" id="roomW" min="4" max="10" step="0.5" value="6">
-    <label class="lbl" for="roomD">进深（深）<b id="roomDv">5 m</b></label>
-    <input type="range" id="roomD" min="4" max="10" step="0.5" value="5">
     <label class="lbl">墙面颜色</label>
     <div id="wallRow" class="swrow"></div>
     <label class="lbl">地板</label>
     <div id="floorRow" class="swrow"></div>
     <button class="btn wide" id="btnDemo" type="button">✦ 一键示范客厅</button>
-    <p class="tip">布置会自动保存在本浏览器；「保存方案」可存一份命名档，用「导出 / 导入」把方案变成文件分享。</p>
+    <p class="tip">墙面与地板即时生效；换户型、画墙请用左侧「户型」页签。布置会自动保存在本浏览器，「导出 / 导入」可把方案变成文件分享。</p>
   </section>
 </aside>
 
